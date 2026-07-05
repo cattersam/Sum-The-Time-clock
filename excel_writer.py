@@ -86,7 +86,7 @@ def export_excel(
         workbook.save(output_path)
         logging.info("exported Excel: %s", output_path)
     except PermissionError as exc:
-        raise ExcelExportError("無法寫入 Excel，請先關閉已開啟的檔案") from exc
+        raise ExcelExportError("Could not write the Excel file. Please close the output workbook and try again.") from exc
     except Exception as exc:
         logging.exception("Excel export failed")
-        raise ExcelExportError(f"Excel 匯出失敗: {exc}") from exc
+        raise ExcelExportError(f"Excel export failed: {exc}") from exc

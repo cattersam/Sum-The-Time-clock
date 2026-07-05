@@ -8,6 +8,7 @@ a = Analysis(
     datas=[
         ('config.json', '.'),
         ('templates/timesheet.xlsx', 'templates'),
+        ('assets/drop-image.svg', 'assets'),
         ('logs', 'logs'),
         ('output', 'output'),
     ],

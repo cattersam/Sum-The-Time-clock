@@ -46,9 +46,12 @@ class CorrectionHistory:
                     "S": "5",
                     "B": "8",
                     ";": ":",
+                    "：": ":",
+                    "；": ":",
                     ".": ":",
                     ",": ":",
-                    "：": ":",
+                    "，": ":",
+                    "。": ":",
                 }
             )
         )
@@ -60,7 +63,7 @@ class CorrectionHistory:
 
     @staticmethod
     def normalize_field(field: str) -> str:
-        if field in {"clock_in", "start", "start_time", "上班"}:
+        if field in {"clock_in", "start", "start_time", "上班", "出勤"}:
             return "clock_in"
         return "clock_out"
 

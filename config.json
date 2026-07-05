@@ -17,13 +17,13 @@
   "photo_mapping": {
     "first_half": {
       "days": [1, 15],
-      "start_column_name": "上班",
-      "end_column_name": "下班"
+      "start_column_name": "clock_in",
+      "end_column_name": "clock_out"
     },
     "second_half": {
       "days": [16, 31],
-      "start_column_name": "上班",
-      "end_column_name": "下班"
+      "start_column_name": "clock_in",
+      "end_column_name": "clock_out"
     }
   },
   "validation": {
@@ -43,7 +43,7 @@
   },
   "roi": {
     "mode": "relative",
-    "note": "以下座標為校正後表格區域內的相對比例，請依實際公版照片調整",
+    "note": "Relative table coordinates used by the reconstructed OCR parser.",
     "first_half": {
       "table_bbox": [0.05, 0.10, 0.95, 0.82],
       "day_col": [0.00, 0.13],

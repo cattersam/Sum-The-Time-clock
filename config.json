@@ -1,0 +1,62 @@
+{
+  "excel_mapping": {
+    "sheet_name": "工作表1",
+    "name_cell": "A1",
+    "name_prefix": "1.",
+    "month_cell": "",
+    "date_col": "A",
+    "start_col": "B",
+    "end_col": "C",
+    "second_start_col": "D",
+    "second_end_col": "E",
+    "hours_col": "F",
+    "unit_col": "G",
+    "start_row": 3,
+    "total_cell": "G34"
+  },
+  "photo_mapping": {
+    "first_half": {
+      "days": [1, 15],
+      "start_column_name": "上班",
+      "end_column_name": "下班"
+    },
+    "second_half": {
+      "days": [16, 31],
+      "start_column_name": "上班",
+      "end_column_name": "下班"
+    }
+  },
+  "validation": {
+    "min_shift_minutes": 120,
+    "max_shift_minutes": 960,
+    "warn_short_shift_minutes": 240,
+    "ok_confidence_threshold": 0.88
+  },
+  "learning": {
+    "enabled": true,
+    "history_file": "logs/correction_history.jsonl",
+    "min_count": 2
+  },
+  "ui": {
+    "enable_drag_drop": true,
+    "highlight_abnormal_rows": true
+  },
+  "roi": {
+    "mode": "relative",
+    "note": "以下座標為校正後表格區域內的相對比例，請依實際公版照片調整",
+    "first_half": {
+      "table_bbox": [0.05, 0.10, 0.95, 0.82],
+      "day_col": [0.00, 0.13],
+      "end_col": [0.54, 0.68],
+      "start_col": [0.70, 0.86],
+      "row_count": 15
+    },
+    "second_half": {
+      "table_bbox": [0.05, 0.14, 0.95, 0.82],
+      "day_col": [0.00, 0.13],
+      "end_col": [0.54, 0.68],
+      "start_col": [0.70, 0.86],
+      "row_count": 16
+    }
+  }
+}

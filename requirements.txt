@@ -1,0 +1,7 @@
+PySide6
+opencv-python
+numpy
+openpyxl
+rapidocr
+onnxruntime
+pyinstaller

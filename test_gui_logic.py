@@ -28,6 +28,14 @@ def main_test() -> None:
     QMessageBox.information = lambda *args, **kwargs: QMessageBox.StandardButton.Ok
     QMessageBox.critical = lambda *args, **kwargs: QMessageBox.StandardButton.Ok
 
+    assert window.language_combo.currentData() in {"en", "zh", "ja"}
+    window.language_combo.setCurrentIndex(window.language_combo.findData("zh"))
+    assert window.files_button.text() == "選擇照片"
+    window.language_combo.setCurrentIndex(window.language_combo.findData("ja"))
+    assert window.files_button.text() == "写真を選択"
+    window.language_combo.setCurrentIndex(window.language_combo.findData("en"))
+    assert window.files_button.text() == "Choose Photos"
+
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         first = tmp_path / "first.jpg"

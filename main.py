@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, QSettings, QThread, Qt, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -38,7 +39,7 @@ from utils import extract_time_text, filter_image_files, get_default_month, setu
 
 APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 RUNTIME_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
-TEMPLATE_DIR_NAMES = ("範本", "templates")
+TEMPLATE_DIR_NAMES = ("templates", "範本")
 SETTINGS_ORG = "StudentAdmin"
 SETTINGS_APP = "AttendanceOCR"
 INVALID_FILENAME_CHARS = r'[<>:"/\\|?*]'
@@ -48,6 +49,189 @@ COL_END = 1
 COL_START = 2
 COL_STATUS = 3
 COL_SOURCE = 4
+
+STATUS_OK = "ok"
+STATUS_BLANK = "blank"
+STATUS_REVIEW = "needs_review"
+STATUS_FAILED = "failed"
+STATUS_ABNORMAL = "abnormal_shift"
+STATUS_SHORT = "short_shift"
+
+LANGUAGES = (("en", "English"), ("zh", "中文"), ("ja", "日本語"))
+
+TRANSLATIONS = {
+    "en": {
+        "app.title": "Sum The Time Clock",
+        "field.name": "Name",
+        "field.month": "Month",
+        "field.language": "Language",
+        "button.files": "Choose Photos",
+        "button.template": "Choose Excel Template",
+        "button.output": "Choose Output",
+        "button.recognize": "Recognize",
+        "button.export": "Export Excel",
+        "status.ready": "Ready",
+        "table.day": "Day",
+        "table.end": "Clock Out",
+        "table.start": "Clock In",
+        "table.status": "Status",
+        "table.source": "Source Image",
+        "selection.none": "Not selected",
+        "selection.photos": "Photos",
+        "selection.template": "Excel template",
+        "selection.output": "Output",
+        "dialog.choose_photos": "Choose attendance sheet photos",
+        "dialog.choose_template": "Choose Excel template",
+        "dialog.choose_output": "Choose output file",
+        "dialog.excel_filter": "Excel (*.xlsx)",
+        "dialog.image_filter": "Images (*.jpg *.jpeg *.png *.bmp *.webp)",
+        "dialog.error": "Error",
+        "dialog.done": "Done",
+        "dialog.photo_limit_title": "Photo limit",
+        "dialog.photo_limit": "Only two photos can be processed at once. The first two were loaded.",
+        "error.no_photos": "Choose or drop photos first.",
+        "error.too_many_photos": "Only two photos can be processed at once.",
+        "error.photo_pair": "Please provide one photo for days 1-15 and one for days 16-31.",
+        "error.bad_drop": "Drop jpg, jpeg, png, bmp, or webp image files.",
+        "error.no_template": "Choose an Excel template first.",
+        "error.invalid_rows": "These days have invalid time values: {rows}",
+        "status.recognizing": "Recognizing {name}",
+        "status.photo_failed": "{name} recognition failed: {error}",
+        "status.recognition_failed": "Recognition failed: {error}",
+        "status.recognition_done": "Recognition finished. Review the table before exporting.",
+        "status.learned_done": "Recognition finished. Applied {count} correction-history value(s). Review before exporting.",
+        "status.exported": "Exported: {path}",
+        "message.exported": "Excel exported:\n{path}",
+        "status.ok": "OK",
+        "status.blank": "Blank",
+        "status.needs_review": "Needs Review",
+        "status.failed": "Failed",
+        "status.abnormal_shift": "Abnormal Shift",
+        "status.short_shift": "Short Shift",
+        "status.learned": "Applied from correction history",
+        "tip.ok": "OK",
+        "tip.blank": "No time detected.",
+        "tip.failed": "OCR could not determine this row.",
+        "tip.shift": "Shift duration is shorter or longer than the configured range.",
+        "tip.review": "Please review this row.",
+        "filename.untitled": "untitled",
+        "config.error": "Configuration Error",
+    },
+    "zh": {
+        "app.title": "打卡單辨識工具",
+        "field.name": "姓名",
+        "field.month": "月份",
+        "field.language": "語言",
+        "button.files": "選擇照片",
+        "button.template": "選擇 Excel 範本",
+        "button.output": "選擇輸出位置",
+        "button.recognize": "開始辨識",
+        "button.export": "匯出 Excel",
+        "status.ready": "就緒",
+        "table.day": "日期",
+        "table.end": "下班",
+        "table.start": "上班",
+        "table.status": "狀態",
+        "table.source": "來源照片",
+        "selection.none": "尚未選擇",
+        "selection.photos": "照片",
+        "selection.template": "Excel 範本",
+        "selection.output": "輸出",
+        "dialog.choose_photos": "選擇打卡單照片",
+        "dialog.choose_template": "選擇 Excel 範本",
+        "dialog.choose_output": "選擇輸出檔案",
+        "dialog.excel_filter": "Excel (*.xlsx)",
+        "dialog.image_filter": "圖片 (*.jpg *.jpeg *.png *.bmp *.webp)",
+        "dialog.error": "錯誤",
+        "dialog.done": "完成",
+        "dialog.photo_limit_title": "照片數量限制",
+        "dialog.photo_limit": "一次最多處理兩張照片，已載入前兩張。",
+        "error.no_photos": "請先選擇或拖入照片。",
+        "error.too_many_photos": "一次最多處理兩張照片。",
+        "error.photo_pair": "請提供 1-15 日與 16-31 日各一張照片。",
+        "error.bad_drop": "請拖入 jpg、jpeg、png、bmp 或 webp 圖片。",
+        "error.no_template": "請先選擇 Excel 範本。",
+        "error.invalid_rows": "以下日期的時間格式不正確：{rows}",
+        "status.recognizing": "正在辨識 {name}",
+        "status.photo_failed": "{name} 辨識失敗：{error}",
+        "status.recognition_failed": "辨識失敗：{error}",
+        "status.recognition_done": "辨識完成，請確認表格後匯出。",
+        "status.learned_done": "辨識完成，已套用 {count} 筆修正紀錄，請確認後匯出。",
+        "status.exported": "已匯出：{path}",
+        "message.exported": "已匯出 Excel：\n{path}",
+        "status.ok": "OK",
+        "status.blank": "空白",
+        "status.needs_review": "需確認",
+        "status.failed": "失敗",
+        "status.abnormal_shift": "班段異常",
+        "status.short_shift": "班段偏短",
+        "status.learned": "由修正紀錄套用",
+        "tip.ok": "正常。",
+        "tip.blank": "沒有辨識到時間。",
+        "tip.failed": "OCR 無法判斷此列。",
+        "tip.shift": "工時過短或過長，請確認。",
+        "tip.review": "請確認此列。",
+        "filename.untitled": "未命名",
+        "config.error": "設定錯誤",
+    },
+    "ja": {
+        "app.title": "タイムカード認識ツール",
+        "field.name": "氏名",
+        "field.month": "月",
+        "field.language": "言語",
+        "button.files": "写真を選択",
+        "button.template": "Excel テンプレートを選択",
+        "button.output": "出力先を選択",
+        "button.recognize": "認識",
+        "button.export": "Excel 出力",
+        "status.ready": "準備完了",
+        "table.day": "日付",
+        "table.end": "退勤",
+        "table.start": "出勤",
+        "table.status": "状態",
+        "table.source": "元画像",
+        "selection.none": "未選択",
+        "selection.photos": "写真",
+        "selection.template": "Excel テンプレート",
+        "selection.output": "出力",
+        "dialog.choose_photos": "タイムカード写真を選択",
+        "dialog.choose_template": "Excel テンプレートを選択",
+        "dialog.choose_output": "出力ファイルを選択",
+        "dialog.excel_filter": "Excel (*.xlsx)",
+        "dialog.image_filter": "画像 (*.jpg *.jpeg *.png *.bmp *.webp)",
+        "dialog.error": "エラー",
+        "dialog.done": "完了",
+        "dialog.photo_limit_title": "写真数の制限",
+        "dialog.photo_limit": "一度に処理できる写真は 2 枚までです。先頭の 2 枚を読み込みました。",
+        "error.no_photos": "先に写真を選択またはドロップしてください。",
+        "error.too_many_photos": "一度に処理できる写真は 2 枚までです。",
+        "error.photo_pair": "1-15 日用と 16-31 日用の写真を 1 枚ずつ指定してください。",
+        "error.bad_drop": "jpg、jpeg、png、bmp、webp の画像をドロップしてください。",
+        "error.no_template": "先に Excel テンプレートを選択してください。",
+        "error.invalid_rows": "次の日付の時刻形式が正しくありません: {rows}",
+        "status.recognizing": "{name} を認識中",
+        "status.photo_failed": "{name} の認識に失敗しました: {error}",
+        "status.recognition_failed": "認識に失敗しました: {error}",
+        "status.recognition_done": "認識が完了しました。出力前に表を確認してください。",
+        "status.learned_done": "認識が完了しました。修正履歴から {count} 件を適用しました。",
+        "status.exported": "出力済み: {path}",
+        "message.exported": "Excel を出力しました:\n{path}",
+        "status.ok": "OK",
+        "status.blank": "空白",
+        "status.needs_review": "要確認",
+        "status.failed": "失敗",
+        "status.abnormal_shift": "勤務時間異常",
+        "status.short_shift": "短時間勤務",
+        "status.learned": "修正履歴から適用",
+        "tip.ok": "正常です。",
+        "tip.blank": "時刻が検出されていません。",
+        "tip.failed": "OCR がこの行を判定できませんでした。",
+        "tip.shift": "勤務時間が設定範囲外です。",
+        "tip.review": "この行を確認してください。",
+        "filename.untitled": "untitled",
+        "config.error": "設定エラー",
+    },
+}
 
 
 def _parse_minutes(value: str) -> Optional[int]:
@@ -87,33 +271,33 @@ def record_status(
     has_start = bool(start_time)
     has_end = bool(end_time)
     if not has_raw and not has_start and not has_end:
-        return "空白"
+        return STATUS_BLANK
     if has_raw and not has_start and not has_end:
-        return "失敗"
+        return STATUS_FAILED
     if has_start != has_end:
-        return "需確認"
+        return STATUS_REVIEW
 
     duration = _shift_minutes(start_time or "", end_time or "")
     if duration is None:
-        return "需確認"
+        return STATUS_REVIEW
     if duration < min_minutes or duration > max_minutes:
-        return "班段異常"
+        return STATUS_ABNORMAL
     if duration < warn_short:
-        return "班段偏短"
+        return STATUS_SHORT
     if confidence and confidence < threshold:
-        return "需確認"
-    return "OK"
+        return STATUS_REVIEW
+    return STATUS_OK
 
 
 def validate_photo_pair(paths: List[Path]) -> None:
     if not paths:
-        raise ImageProcessingError("請先選擇或拖入照片")
+        raise ImageProcessingError("no_photos")
     if len(paths) > 2:
-        raise ImageProcessingError("一次最多處理 2 張照片")
+        raise ImageProcessingError("too_many_photos")
     if len(paths) == 2:
         halves = {classify_half_by_color(read_image(path)) for path in paths}
         if halves != {"first_half", "second_half"}:
-            raise ImageProcessingError("請確認兩張照片分別是 1-15 日與 16-31 日")
+            raise ImageProcessingError("photo_pair")
 
 
 def find_default_template() -> Optional[Path]:
@@ -124,6 +308,9 @@ def find_default_template() -> Optional[Path]:
             if candidate.exists():
                 search_dirs.append(candidate)
     for folder in search_dirs:
+        preferred = folder / "timesheet.xlsx"
+        if preferred.is_file():
+            return preferred
         templates = sorted(path for path in folder.glob("*.xlsx") if path.is_file())
         if templates:
             return templates[0]
@@ -131,7 +318,7 @@ def find_default_template() -> Optional[Path]:
 
 
 def build_output_filename(month: int, name: str) -> str:
-    safe_name = re.sub(INVALID_FILENAME_CHARS, "", name).strip() or "未命名"
+    safe_name = re.sub(INVALID_FILENAME_CHARS, "", name).strip() or "untitled"
     return f"{month:02d}_{safe_name}.xlsx"
 
 
@@ -158,7 +345,7 @@ class RecognitionWorker(QObject):
             engine = OCREngine()
             engine.initialize()
             for photo_index, path in enumerate(self.paths):
-                self.progress.emit(f"辨識 {path.name}")
+                self.progress.emit(f"recognizing|{path.name}")
                 try:
                     image = read_image(path)
                     fallback_half = self.config.classify_photo(path, photo_index)
@@ -168,7 +355,7 @@ class RecognitionWorker(QObject):
                     logging.exception("photo recognition failed")
                     fallback_half = self.config.classify_photo(path, photo_index)
                     self._mark_photo_failed(records, fallback_half, path.name)
-                    self.progress.emit(f"{path.name} 辨識失敗: {exc}")
+                    self.progress.emit(f"photo_failed|{path.name}|{exc}")
                     continue
 
                 for recognized in recognized_rows:
@@ -183,7 +370,7 @@ class RecognitionWorker(QObject):
                         recognized.confidence,
                         self.config.validation,
                     )
-                    incoming = AttendanceRecord(
+                    records[day] = AttendanceRecord(
                         day=day,
                         start_time=start_time,
                         end_time=end_time,
@@ -193,24 +380,20 @@ class RecognitionWorker(QObject):
                         source_image=str(path),
                         confidence=recognized.confidence,
                     )
-                    current = records.get(day)
-                    if current and current.status != "空白":
-                        current.source_image = "; ".join(filter(None, [current.source_image, str(path)]))
-                    records[day] = incoming
 
             self.finished.emit([records[day] for day in range(1, 32)])
         except (ConfigError, OCREngineError) as exc:
             self.failed.emit(str(exc))
         except Exception as exc:
             logging.exception("recognition failed")
-            self.failed.emit(f"辨識失敗: {exc}")
+            self.failed.emit(str(exc))
 
     def _mark_photo_failed(self, records: dict[int, AttendanceRecord], half: str, filename: str) -> None:
         for day in self.config.get_days(half):
             self._merge_failure(records[day], filename)
 
     def _merge_failure(self, current: AttendanceRecord, filename: str) -> None:
-        current.status = "失敗" if current.status == "空白" else "需確認"
+        current.status = STATUS_FAILED if current.status == STATUS_BLANK else STATUS_REVIEW
         current.source_image = "; ".join(filter(None, [current.source_image, filename]))
 
 
@@ -218,9 +401,13 @@ class MainWindow(QMainWindow):
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
         self.config = config
+        self.settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        self.language = self.settings.value("language", "en", str)
+        if self.language not in TRANSLATIONS:
+            self.language = "en"
+
         self.photo_paths: List[Path] = []
         self.template_path = find_default_template()
-        self.settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
         self.output_dir = self._load_output_dir()
         self.output_path: Optional[Path] = None
         self._manual_output_path = False
@@ -236,31 +423,62 @@ class MainWindow(QMainWindow):
             min_count=int(learning.get("min_count", 2)),
         )
 
-        self.setWindowTitle("打卡單辨識工具")
-        self.resize(920, 720)
+        self.resize(1000, 740)
         self._build_ui()
         self.name_input.textChanged.connect(self._output_filename_source_changed)
         self.month_input.valueChanged.connect(self._output_filename_source_changed)
+        self._apply_language()
         self._update_selection_label()
         self._refresh_table()
 
+    def tr(self, key: str, **kwargs) -> str:
+        text = TRANSLATIONS.get(self.language, TRANSLATIONS["en"]).get(key, TRANSLATIONS["en"].get(key, key))
+        return text.format(**kwargs) if kwargs else text
+
     def _build_ui(self) -> None:
         root = QWidget()
+        root.setObjectName("root")
+        root.setStyleSheet(
+            """
+            QWidget#root { background: #f5f7fb; }
+            QLabel#titleLabel { font-size: 22px; font-weight: 700; color: #172033; }
+            QLabel#selectionLabel { background: #ffffff; border: 2px dashed #9db3d7; border-radius: 8px; padding: 14px; color: #34415f; }
+            QTableWidget { background: #ffffff; gridline-color: #e4e8f0; border: 1px solid #dce3ef; }
+            QPushButton { padding: 7px 12px; border-radius: 5px; background: #2457a6; color: white; }
+            QPushButton:disabled { background: #a9b6ca; }
+            QLineEdit, QSpinBox, QComboBox { padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; }
+            """
+        )
         layout = QVBoxLayout(root)
+        layout.setSpacing(10)
+
+        self.title_label = QLabel()
+        self.title_label.setObjectName("titleLabel")
+        layout.addWidget(self.title_label)
 
         form = QFormLayout()
+        self.name_label = QLabel()
+        self.month_label = QLabel()
+        self.language_label = QLabel()
         self.name_input = QLineEdit()
         self.month_input = QSpinBox()
         self.month_input.setRange(1, 12)
         self.month_input.setValue(get_default_month())
-        form.addRow("姓名", self.name_input)
-        form.addRow("月份", self.month_input)
+        self.language_combo = QComboBox()
+        for code, label in LANGUAGES:
+            self.language_combo.addItem(label, code)
+        index = self.language_combo.findData(self.language)
+        self.language_combo.setCurrentIndex(max(index, 0))
+        self.language_combo.currentIndexChanged.connect(self._language_changed)
+        form.addRow(self.name_label, self.name_input)
+        form.addRow(self.month_label, self.month_input)
+        form.addRow(self.language_label, self.language_combo)
         layout.addLayout(form)
 
         button_row = QHBoxLayout()
-        self.files_button = QPushButton("選擇照片")
-        self.template_button = QPushButton("選擇 Excel 範本")
-        self.output_button = QPushButton("選擇輸出位置")
+        self.files_button = QPushButton()
+        self.template_button = QPushButton()
+        self.output_button = QPushButton()
         for button in (self.files_button, self.template_button, self.output_button):
             button_row.addWidget(button)
         layout.addLayout(button_row)
@@ -270,21 +488,21 @@ class MainWindow(QMainWindow):
             self.selection_label.filesDropped.connect(self._set_photo_paths_from_drop)
         else:
             self.selection_label = QLabel()
+        self.selection_label.setObjectName("selectionLabel")
         self.selection_label.setWordWrap(True)
         layout.addWidget(self.selection_label)
 
         action_row = QHBoxLayout()
-        self.recognize_button = QPushButton("開始辨識")
-        self.export_button = QPushButton("匯出 Excel")
+        self.recognize_button = QPushButton()
+        self.export_button = QPushButton()
         action_row.addWidget(self.recognize_button)
         action_row.addWidget(self.export_button)
         layout.addLayout(action_row)
 
-        self.status_label = QLabel("就緒")
+        self.status_label = QLabel()
         layout.addWidget(self.status_label)
 
         self.table = QTableWidget(31, 5)
-        self.table.setHorizontalHeaderLabels(("日期", "下班", "上班", "狀態", "來源照片"))
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
 
@@ -296,22 +514,64 @@ class MainWindow(QMainWindow):
         self.export_button.clicked.connect(self._export)
         self.table.cellChanged.connect(self._cell_changed)
 
+    def _apply_language(self) -> None:
+        self.setWindowTitle(self.tr("app.title"))
+        self.title_label.setText(self.tr("app.title"))
+        self.name_label.setText(self.tr("field.name"))
+        self.month_label.setText(self.tr("field.month"))
+        self.language_label.setText(self.tr("field.language"))
+        self.files_button.setText(self.tr("button.files"))
+        self.template_button.setText(self.tr("button.template"))
+        self.output_button.setText(self.tr("button.output"))
+        self.recognize_button.setText(self.tr("button.recognize"))
+        self.export_button.setText(self.tr("button.export"))
+        self.table.setHorizontalHeaderLabels(
+            (
+                self.tr("table.day"),
+                self.tr("table.end"),
+                self.tr("table.start"),
+                self.tr("table.status"),
+                self.tr("table.source"),
+            )
+        )
+        if not self.status_label.text():
+            self.status_label.setText(self.tr("status.ready"))
+
+    def _language_changed(self, *_args: object) -> None:
+        code = self.language_combo.currentData()
+        if code not in TRANSLATIONS:
+            return
+        self.language = code
+        self.settings.setValue("language", self.language)
+        self._apply_language()
+        self._update_selection_label()
+        self._refresh_table()
+
+    def _translate_error(self, exc: Exception) -> str:
+        mapping = {
+            "no_photos": "error.no_photos",
+            "too_many_photos": "error.too_many_photos",
+            "photo_pair": "error.photo_pair",
+        }
+        message = str(exc)
+        return self.tr(mapping.get(message, message))
+
     def _select_files(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(
             self,
-            "選擇打卡單照片",
+            self.tr("dialog.choose_photos"),
             "",
-            "圖片 (*.jpg *.jpeg *.png *.bmp *.webp)",
+            self.tr("dialog.image_filter"),
         )
         self._set_photo_paths(filter_image_files(paths))
 
     def _set_photo_paths_from_drop(self, paths: list[Path]) -> None:
         image_paths = filter_image_files(paths)
         if not image_paths:
-            self._show_error("請拖入 jpg、jpeg、png、bmp 或 webp 圖片")
+            self._show_error(self.tr("error.bad_drop"))
             return
         if len(image_paths) > 2:
-            QMessageBox.information(self, "照片數量限制", "一次最多處理兩張照片，已先取前兩張。")
+            QMessageBox.information(self, self.tr("dialog.photo_limit_title"), self.tr("dialog.photo_limit"))
             image_paths = image_paths[:2]
         self._set_photo_paths(image_paths)
 
@@ -319,20 +579,20 @@ class MainWindow(QMainWindow):
         try:
             validate_photo_pair(paths)
         except ImageProcessingError as exc:
-            self._show_error(str(exc))
+            self._show_error(self._translate_error(exc))
             return
         self.photo_paths = list(paths)
         self._update_selection_label()
 
     def _select_template(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "選擇 Excel 範本", "", "Excel (*.xlsx)")
+        path, _ = QFileDialog.getOpenFileName(self, self.tr("dialog.choose_template"), "", self.tr("dialog.excel_filter"))
         if path:
             self.template_path = Path(path)
             self._update_selection_label()
 
     def _select_output(self) -> None:
         default_path = self._suggested_output_path()
-        path, _ = QFileDialog.getSaveFileName(self, "選擇輸出位置", str(default_path), "Excel (*.xlsx)")
+        path, _ = QFileDialog.getSaveFileName(self, self.tr("dialog.choose_output"), str(default_path), self.tr("dialog.excel_filter"))
         if path:
             self.output_path = Path(path).with_suffix(".xlsx")
             self.output_dir = self.output_path.parent
@@ -341,11 +601,13 @@ class MainWindow(QMainWindow):
             self._update_selection_label()
 
     def _update_selection_label(self) -> None:
-        template = self.template_path.name if self.template_path else "尚未選擇"
+        template = self.template_path.name if self.template_path else self.tr("selection.none")
         output_path = self._current_output_path()
-        photos = "、".join(path.name for path in self.photo_paths) if self.photo_paths else "尚未選擇"
+        photos = ", ".join(path.name for path in self.photo_paths) if self.photo_paths else self.tr("selection.none")
         self.selection_label.setText(
-            f"照片：{photos}\nExcel 範本：{template}\n輸出：{output_path}"
+            f"{self.tr('selection.photos')}: {photos}\n"
+            f"{self.tr('selection.template')}: {template}\n"
+            f"{self.tr('selection.output')}: {output_path}"
         )
 
     def _load_output_dir(self) -> Path:
@@ -354,7 +616,10 @@ class MainWindow(QMainWindow):
         return path if path.exists() else RUNTIME_DIR / "output"
 
     def _suggested_output_path(self) -> Path:
-        return self.output_dir / build_output_filename(self.month_input.value(), self.name_input.text())
+        filename = build_output_filename(self.month_input.value(), self.name_input.text())
+        if filename.startswith("untitled") or filename.endswith("_untitled.xlsx"):
+            filename = filename.replace("untitled", self.tr("filename.untitled"))
+        return self.output_dir / filename
 
     def _current_output_path(self) -> Path:
         if self._manual_output_path and self.output_path:
@@ -367,12 +632,12 @@ class MainWindow(QMainWindow):
 
     def _start_recognition(self) -> None:
         if not self.photo_paths:
-            self._show_error("請先選擇或拖入照片")
+            self._show_error(self.tr("error.no_photos"))
             return
         try:
             validate_photo_pair(self.photo_paths)
         except ImageProcessingError as exc:
-            self._show_error(str(exc))
+            self._show_error(self._translate_error(exc))
             return
         self._set_busy(True)
         self.thread = QThread()
@@ -381,11 +646,20 @@ class MainWindow(QMainWindow):
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self._recognition_finished)
         self.worker.failed.connect(self._recognition_failed)
-        self.worker.progress.connect(self.status_label.setText)
+        self.worker.progress.connect(self._recognition_progress)
         self.worker.finished.connect(self.thread.quit)
         self.worker.failed.connect(self.thread.quit)
         self.thread.finished.connect(self._thread_finished)
         self.thread.start()
+
+    def _recognition_progress(self, payload: str) -> None:
+        parts = payload.split("|", 2)
+        if parts[0] == "recognizing" and len(parts) > 1:
+            self.status_label.setText(self.tr("status.recognizing", name=parts[1]))
+        elif parts[0] == "photo_failed" and len(parts) > 2:
+            self.status_label.setText(self.tr("status.photo_failed", name=parts[1], error=parts[2]))
+        else:
+            self.status_label.setText(payload)
 
     def _recognition_finished(self, records: List[AttendanceRecord]) -> None:
         learned_count = 0
@@ -404,13 +678,13 @@ class MainWindow(QMainWindow):
         self.records = records
         self._refresh_table()
         if learned_count:
-            self.status_label.setText(f"辨識完成，已由修正紀錄套用 {learned_count} 筆，請確認後匯出 Excel")
+            self.status_label.setText(self.tr("status.learned_done", count=learned_count))
         else:
-            self.status_label.setText("辨識完成，請確認後匯出 Excel")
+            self.status_label.setText(self.tr("status.recognition_done"))
 
     def _recognition_failed(self, message: str) -> None:
-        self.status_label.setText(message)
-        self._show_error(message)
+        self.status_label.setText(self.tr("status.recognition_failed", error=message))
+        self._show_error(self.tr("status.recognition_failed", error=message))
 
     def _thread_finished(self) -> None:
         self._set_busy(False)
@@ -424,9 +698,10 @@ class MainWindow(QMainWindow):
             button.setEnabled(not busy)
 
     def _display_status(self, record: AttendanceRecord) -> str:
+        status = self.tr(f"status.{record.status}")
         if record.learned_fields:
-            return f"{record.status}；由修正紀錄套用"
-        return record.status
+            return f"{status}; {self.tr('status.learned')}"
+        return status
 
     def _refresh_table(self) -> None:
         self._updating_table = True
@@ -454,21 +729,21 @@ class MainWindow(QMainWindow):
             return
         status = record.status or ""
         learned = bool(record.learned_fields)
-        if status == "OK":
+        if status == STATUS_OK:
             bg = QColor(224, 242, 254) if learned else QColor(255, 255, 255)
-            tip = "由修正紀錄套用" if learned else "OK"
-        elif status == "空白":
+            tip = self.tr("status.learned") if learned else self.tr("tip.ok")
+        elif status == STATUS_BLANK:
             bg = QColor(245, 245, 245)
-            tip = "空白"
-        elif status == "失敗":
+            tip = self.tr("tip.blank")
+        elif status == STATUS_FAILED:
             bg = QColor(255, 210, 210)
-            tip = "OCR 無法判斷"
-        elif status in {"班段異常", "班段偏短"}:
+            tip = self.tr("tip.failed")
+        elif status in {STATUS_ABNORMAL, STATUS_SHORT}:
             bg = QColor(255, 225, 190)
-            tip = "工時過短或過長，請確認"
+            tip = self.tr("tip.shift")
         else:
             bg = QColor(255, 243, 176)
-            tip = "需確認"
+            tip = self.tr("tip.review")
         for column in range(self.table.columnCount()):
             item = self.table.item(row, column)
             if item is not None:
@@ -524,7 +799,7 @@ class MainWindow(QMainWindow):
 
     def _export(self) -> None:
         if not self.template_path:
-            self._show_error("請先選擇 Excel 範本")
+            self._show_error(self.tr("error.no_template"))
             return
         invalid_rows = []
         for row in range(self.table.rowCount()):
@@ -533,7 +808,7 @@ class MainWindow(QMainWindow):
                 if text and not extract_time_text(text):
                     invalid_rows.append(str(row + 1))
         if invalid_rows:
-            self._show_error(f"以下日期時間格式不正確: {', '.join(sorted(set(invalid_rows), key=int))}")
+            self._show_error(self.tr("error.invalid_rows", rows=", ".join(sorted(set(invalid_rows), key=int))))
             return
 
         output_path = self._current_output_path()
@@ -549,14 +824,14 @@ class MainWindow(QMainWindow):
             )
             self.output_dir = output_path.parent
             self.settings.setValue("last_output_dir", str(self.output_dir))
-            self.status_label.setText(f"已匯出: {output_path}")
-            QMessageBox.information(self, "完成", f"已匯出 Excel:\n{output_path}")
+            self.status_label.setText(self.tr("status.exported", path=output_path))
+            QMessageBox.information(self, self.tr("dialog.done"), self.tr("message.exported", path=output_path))
         except ExcelExportError as exc:
             self._show_error(str(exc))
 
     def _show_error(self, message: str) -> None:
         logging.error(message)
-        QMessageBox.critical(self, "錯誤", message)
+        QMessageBox.critical(self, self.tr("dialog.error"), message)
 
 
 def main() -> int:
@@ -566,7 +841,7 @@ def main() -> int:
         config = AppConfig(find_config_path())
     except ConfigError as exc:
         logging.exception("config failed")
-        QMessageBox.critical(None, "設定錯誤", str(exc))
+        QMessageBox.critical(None, TRANSLATIONS["en"]["config.error"], str(exc))
         return 1
     window = MainWindow(config)
     window.show()

@@ -42,7 +42,7 @@ def main() -> None:
 
         output = tmp_path / "out.xlsx"
         records = [AttendanceRecord(day=1, start_time="08:30", end_time="17:30")]
-        export_excel("範本/時數表.xlsx", output, "Test", 7, records, config.excel_mapping)
+        export_excel("templates/timesheet.xlsx", output, "Test", 7, records, config.excel_mapping)
         assert output.exists() and output.stat().st_size > 0
 
     print("static logic tests passed")

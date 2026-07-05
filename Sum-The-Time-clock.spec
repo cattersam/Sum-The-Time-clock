@@ -7,7 +7,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('config.json', '.'),
-        ('範本/時數表.xlsx', '範本'),
+        ('templates/timesheet.xlsx', 'templates'),
         ('logs', 'logs'),
         ('output', 'output'),
     ],
@@ -26,7 +26,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='打卡單辨識工具',
+    name='Sum-The-Time-clock',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -45,5 +45,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='打卡單辨識工具',
+    name='Sum-The-Time-clock',
 )

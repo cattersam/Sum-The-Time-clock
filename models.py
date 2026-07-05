@@ -23,7 +23,7 @@ class AttendanceRecord:
     day: int
     start_time: Optional[str] = None
     end_time: Optional[str] = None
-    status: str = "空白"
+    status: str = "blank"
     source_image: str = ""
     confidence: float = 0.0
     start_raw: str = ""

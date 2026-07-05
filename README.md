@@ -1,19 +1,42 @@
 # Sum The Time Clock
 
-重建版打卡單辨識工具。此專案由既有 PyInstaller 成品做靜態抽取後，重新整理成可修改的 Python / PySide6 原始碼專案。
+Sum The Time Clock is a reconstructed Python / PySide6 desktop tool for reading attendance sheet photos, reviewing recognized clock-in and clock-out times, and exporting the result to an Excel timesheet.
 
-## 功能
+## Highlights
 
-- 選擇或拖拉打卡單照片進入視窗。
-- 支援 `.jpg`、`.jpeg`、`.png`、`.bmp`、`.webp`。
-- 依 OCR 結果填入每日上班、下班時間。
-- 依班段狀態用顏色標示 `OK`、空白、需確認、失敗、工時異常。
-- 從 `config.json` 讀取班段驗證門檻。
-- 記錄使用者手動修正到 `logs/correction_history.jsonl`。
-- 同一 OCR 原始文字累積至少 2 次相同修正後，下次自動套用。
-- 匯出到 `範本/時數表.xlsx` 格式的 Excel。
+- Drag and drop attendance photos into the app.
+- Supports `.jpg`, `.jpeg`, `.png`, `.bmp`, and `.webp` images.
+- Handles one photo or a first-half / second-half pair.
+- Shows loaded file names before recognition.
+- Highlights blank, review-needed, failed, short-shift, and abnormal-shift rows.
+- Reads validation rules from `config.json`.
+- Records manual table edits in `logs/correction_history.jsonl`.
+- Applies repeated correction-history matches automatically.
+- Exports to the bundled Excel template at `templates/timesheet.xlsx`.
+- Includes a language selector for English, Traditional Chinese, and Japanese.
 
-## 安裝
+## Project Structure
+
+```text
+main.py
+models.py
+utils.py
+roi_config.py
+image_preprocess.py
+ocr_engine.py
+excel_writer.py
+drag_drop_widgets.py
+correction_history.py
+config.json
+requirements.txt
+Sum-The-Time-clock.spec
+templates/
+  timesheet.xlsx
+logs/
+output/
+```
+
+## Install
 
 ```bat
 py -3.12 -m venv .venv
@@ -21,13 +44,13 @@ py -3.12 -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-## 執行
+## Run
 
 ```bat
 python main.py
 ```
 
-## 測試
+## Test
 
 ```bat
 python -m compileall .
@@ -35,18 +58,20 @@ python test_static_logic.py
 python test_gui_logic.py
 ```
 
-## 打包
+## Build
 
 ```bat
-pyinstaller 打卡單辨識工具.spec --clean --noconfirm
+pyinstaller Sum-The-Time-clock.spec --clean --noconfirm
 ```
 
-打包成品會出現在 `dist/打卡單辨識工具/`。若要避免覆蓋其他成品，可使用：
+To place the build in a separate folder:
 
 ```bat
-pyinstaller 打卡單辨識工具.spec --clean --noconfirm --distpath dist_new
+pyinstaller Sum-The-Time-clock.spec --clean --noconfirm --distpath dist_new
 ```
 
-## 注意
+## Notes
 
-此 repo 不包含原本打包後的 `.exe` 或 `_internal/`。執行時會讀取 exe 同層的 `config.json`；若沒有，才讀取 PyInstaller `_internal` 中的 bundled 設定。
+The repository intentionally does not include the original packaged `.exe`, `_internal/`, virtual environments, reverse-engineering cache, or generated build output.
+
+When packaged with PyInstaller, the app first looks for `config.json` next to the executable so users can edit settings after deployment. If that file is missing, it falls back to the bundled copy under PyInstaller's internal data folder.

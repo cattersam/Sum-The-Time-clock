@@ -29,3 +29,4 @@ class AttendanceRecord:
     start_raw: str = ""
     end_raw: str = ""
     learned_fields: Set[str] = field(default_factory=set)
+    manual_fields: Set[str] = field(default_factory=set)

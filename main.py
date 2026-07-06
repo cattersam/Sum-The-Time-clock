@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QSpinBox,
+    QStyledItemDelegate,
     QStyle,
     QTableWidget,
     QTableWidgetItem,
@@ -35,7 +36,7 @@ from PySide6.QtWidgets import (
 from correction_history import CorrectionHistory
 from drag_drop_widgets import DropImageLabel
 from excel_writer import ExcelExportError, export_excel
-from image_preprocess import ImageProcessingError, classify_half_by_color, read_image
+from image_preprocess import ImageProcessingError, read_image
 from models import AttendanceRecord
 from ocr_engine import OCREngine, OCREngineError
 from roi_config import AppConfig, ConfigError
@@ -398,10 +399,6 @@ def validate_photo_pair(paths: List[Path]) -> None:
         raise ImageProcessingError("no_photos")
     if len(paths) > 2:
         raise ImageProcessingError("too_many_photos")
-    if len(paths) == 2:
-        halves = {classify_half_by_color(read_image(path)) for path in paths}
-        if halves != {"first_half", "second_half"}:
-            raise ImageProcessingError("photo_pair")
 
 
 def find_default_template() -> Optional[Path]:
@@ -465,8 +462,7 @@ class RecognitionWorker(QObject):
                 try:
                     image = read_image(path)
                     fallback_half = self.config.classify_photo(path, photo_index)
-                    half = classify_half_by_color(image)
-                    recognized_rows = engine.recognize_attendance(image, fallback_half=half or fallback_half)
+                    recognized_rows = engine.recognize_attendance(image, fallback_half=fallback_half)
                 except (ImageProcessingError, OCREngineError) as exc:
                     logging.exception("photo recognition failed")
                     fallback_half = self.config.classify_photo(path, photo_index)
@@ -518,6 +514,27 @@ class RecognitionWorker(QObject):
     def _merge_failure(self, current: AttendanceRecord, filename: str) -> None:
         current.status = STATUS_FAILED if current.status == STATUS_BLANK else STATUS_REVIEW
         current.source_image = "; ".join(filter(None, [current.source_image, filename]))
+
+
+class TimeEditDelegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):  # noqa: N802 - Qt API name
+        editor = QLineEdit(parent)
+        editor.setMinimumHeight(34)
+        editor.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        editor.setPlaceholderText("HH:MM")
+        editor.setStyleSheet(
+            "QLineEdit { background: #ffffff; color: #172033; "
+            "border: 2px solid #1769d2; border-radius: 5px; "
+            "padding: 6px 8px; font-size: 15px; selection-background-color: #bfdbfe; }"
+        )
+        return editor
+
+    def setEditorData(self, editor, index):  # noqa: N802 - Qt API name
+        editor.setText(str(index.data() or ""))
+        editor.selectAll()
+
+    def setModelData(self, editor, model, index):  # noqa: N802 - Qt API name
+        model.setData(index, editor.text().strip())
 
 
 class MainWindow(QMainWindow):
@@ -584,8 +601,9 @@ class MainWindow(QMainWindow):
             QLabel#statusLabel { color: #314560; }
             QProgressBar { background: #edf2f8; border: 1px solid #cbd7e7; border-radius: 6px; height: 20px; text-align: center; color: #172033; }
             QProgressBar::chunk { background: #1f6fd3; border-radius: 5px; }
-            QTableWidget { background: #ffffff; alternate-background-color: #f9fbff; gridline-color: #e1e7f0; border: 1px solid #d9e1ec; border-radius: 7px; }
+            QTableWidget { background: #ffffff; alternate-background-color: #f9fbff; color: #172033; gridline-color: #e1e7f0; border: 1px solid #d9e1ec; border-radius: 7px; }
             QTableWidget::item { padding: 4px; }
+            QTableWidget::item:selected { background: #dbeafe; color: #172033; }
             QHeaderView::section { background: #f4f7fb; border: 0; border-right: 1px solid #d8e1ed; border-bottom: 1px solid #d8e1ed; color: #34445c; font-weight: 700; padding: 7px; }
             QPushButton { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd7e6; background: #ffffff; color: #1f2b3d; }
             QPushButton:hover { border-color: #8eb6ef; background: #f6faff; }
@@ -594,6 +612,7 @@ class MainWindow(QMainWindow):
             QPushButton#primaryButton:hover { background: #0f5fc7; }
             QPushButton#secondaryBlueButton { background: #ffffff; border-color: #bed0e9; color: #1769d2; font-weight: 700; }
             QLineEdit, QSpinBox, QComboBox { padding: 7px; border: 1px solid #cbd5e1; border-radius: 5px; background: white; color: #172033; }
+            QComboBox QAbstractItemView { background: #ffffff; color: #172033; border: 1px solid #cbd5e1; selection-background-color: #dbeafe; selection-color: #172033; outline: 0; }
             QFrame#bottomBar { background: #f8fbff; border-top: 1px solid #d6dde8; }
             """
         )
@@ -682,6 +701,11 @@ class MainWindow(QMainWindow):
         self.language_label = QLabel()
         self.language_combo = QComboBox()
         self.language_combo.setFixedWidth(150)
+        self.language_combo.view().setStyleSheet(
+            "QAbstractItemView { background: #ffffff; color: #172033; "
+            "selection-background-color: #dbeafe; selection-color: #172033; "
+            "border: 1px solid #cbd5e1; outline: 0; }"
+        )
         for code, label in LANGUAGES:
             self.language_combo.addItem(label, code)
         index = self.language_combo.findData(self.language)
@@ -724,7 +748,9 @@ class MainWindow(QMainWindow):
         self.table = QTableWidget(31, 7)
         self.table.setAlternatingRowColors(False)
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(25)
+        self.table.verticalHeader().setDefaultSectionSize(32)
+        self.table.setItemDelegateForColumn(COL_START, TimeEditDelegate(self.table))
+        self.table.setItemDelegateForColumn(COL_END, TimeEditDelegate(self.table))
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked | QTableWidget.EditTrigger.SelectedClicked | QTableWidget.EditTrigger.EditKeyPressed)
         header = self.table.horizontalHeader()
@@ -1065,6 +1091,7 @@ class MainWindow(QMainWindow):
             for record in records:
                 if self.correction_history.apply_to_record(record):
                     learned_count += 1
+                    record.confidence = max(record.confidence, float(self.config.validation.get("ok_confidence_threshold", 0.88)))
                 record.status = record_status(
                     record.start_raw,
                     record.end_raw,
@@ -1172,6 +1199,7 @@ class MainWindow(QMainWindow):
             item = self.table.item(row, column)
             if item is not None:
                 item.setBackground(QBrush(status_bg if column == COL_STATUS else bg))
+                item.setForeground(QBrush(QColor(23, 32, 51)))
                 item.setToolTip(tip)
 
     def _cell_changed(self, row: int, column: int) -> None:
@@ -1193,6 +1221,9 @@ class MainWindow(QMainWindow):
             field = "clock_out"
 
         if old_value != normalized_value and normalized_value:
+            if new_value:
+                record.manual_fields.add(field)
+                record.confidence = max(record.confidence, float(self.config.validation.get("ok_confidence_threshold", 0.88)))
             self.correction_history.append(
                 date=record.day,
                 field=field,

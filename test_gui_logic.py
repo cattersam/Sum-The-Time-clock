@@ -35,6 +35,7 @@ def main_test() -> None:
     assert window.files_button.text() == "写真を選択"
     window.language_combo.setCurrentIndex(window.language_combo.findData("en"))
     assert window.files_button.text() == "Choose Photos"
+    assert "#172033" in window.language_combo.view().styleSheet()
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -74,8 +75,12 @@ def main_test() -> None:
     after = window.correction_history.path.stat().st_size
     assert after > before
     assert window.records[0].start_time == "08:30"
+    assert window.records[0].status == main.STATUS_OK
+    assert "clock_in" in window.records[0].manual_fields
     assert window.table.item(0, main.COL_STATUS).text()
     assert window.table.item(0, main.COL_TOTAL).text() == "9:00"
+    assert window.table.item(0, main.COL_TOTAL).foreground().color().name() == "#172033"
+    assert window.table.verticalHeader().defaultSectionSize() >= 32
 
     app.quit()
     print("gui logic tests passed")

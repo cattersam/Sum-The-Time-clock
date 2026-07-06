@@ -6,6 +6,7 @@ import tempfile
 from correction_history import CorrectionHistory
 from excel_writer import export_excel
 from models import AttendanceRecord
+from ocr_engine import OCREngine
 from roi_config import AppConfig
 from utils import extract_time_text, filter_image_files
 from main import validate_photo_pair
@@ -15,6 +16,8 @@ def main() -> None:
     assert extract_time_text("O8.3O") == "08:30"
     assert extract_time_text("18;05") == "18:05"
     assert extract_time_text("18：05") == "18:05"
+    assert OCREngine._infer_left_column_role([("22:24", 0.9, "16:36", 0.9), ("21:56", 0.9, "16:46", 0.9)]) == "end"
+    assert OCREngine._infer_left_column_role([("09:00", 0.9, "18:00", 0.9), ("10:00", 0.9, "19:00", 0.9)]) == "start"
 
     config = AppConfig("config.json")
     assert config.validation["min_shift_minutes"] == 120

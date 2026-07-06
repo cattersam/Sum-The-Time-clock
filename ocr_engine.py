@@ -67,9 +67,13 @@ class OCREngine:
             day_points = [(day, y) for day, y in detected_days if first_day <= day < first_day + row_count]
             row_origin, row_step = self._fit_rows(day_points, header_bottom, row_count)
 
-            grouped: dict[int, dict[str, list[tuple[str, float]]]] = defaultdict(lambda: defaultdict(list))
+            grouped: dict[int, list[tuple[float, str, float]]] = defaultdict(list)
+            all_relative_x = []
             for bbox, text, score in detections:
                 if not self._looks_like_time_fragment(text):
+                    continue
+                normalized = extract_ocr_time_text(text) or extract_time_text(text)
+                if not normalized:
                     continue
                 center_x, center_y = self._center(bbox)
                 if center_y <= header_bottom:
@@ -79,18 +83,32 @@ class OCREngine:
                 if day < first_day or day >= first_day + row_count:
                     continue
                 relative_x = (center_x - left) / table_width
-                if 0.43 <= relative_x <= 0.67:
-                    column = "end"
-                elif 0.55 <= relative_x <= 0.92:
-                    column = "start"
-                else:
+                if not 0.32 <= relative_x <= 0.96:
                     continue
-                grouped[day][column].append((text, score))
+                grouped[day].append((relative_x, normalized, score))
+                all_relative_x.append(relative_x)
+
+            left_center, right_center = self._infer_time_column_centers(all_relative_x)
+            split_x = (left_center + right_center) / 2
+            column_rows = {}
+            for day in range(first_day, first_day + row_count):
+                left_items = [(text, score, abs(relative_x - left_center)) for relative_x, text, score in grouped[day] if relative_x < split_x]
+                right_items = [(text, score, abs(relative_x - right_center)) for relative_x, text, score in grouped[day] if relative_x >= split_x]
+                left_text, left_score = self._choose_position_time(left_items)
+                right_text, right_score = self._choose_position_time(right_items)
+                column_rows[day] = (left_text, left_score, right_text, right_score)
+
+            left_role = self._infer_left_column_role(column_rows.values())
 
             rows = []
             for day in range(first_day, first_day + row_count):
-                start_text, start_score = self._choose_time(grouped[day]["start"])
-                end_text, end_score = self._choose_time(grouped[day]["end"])
+                left_text, left_score, right_text, right_score = column_rows[day]
+                if left_role == "start":
+                    start_text, start_score = left_text, left_score
+                    end_text, end_score = right_text, right_score
+                else:
+                    start_text, start_score = right_text, right_score
+                    end_text, end_score = left_text, left_score
                 rows.append(
                     OCRAttendanceRow(
                         day=day,
@@ -230,6 +248,59 @@ class OCREngine:
             return "", 0.0
         best = max(candidates, key=lambda item: (item[2], len(item[1])))
         return best[0], float(best[2])
+
+    @staticmethod
+    def _infer_time_column_centers(relative_x_values: list[float]) -> tuple[float, float]:
+        values = sorted(value for value in relative_x_values if 0.32 <= value <= 0.96)
+        if len(values) < 2:
+            return 0.56, 0.76
+        left_center = values[0]
+        right_center = values[-1]
+        for _ in range(8):
+            split = (left_center + right_center) / 2
+            left_values = [value for value in values if value < split]
+            right_values = [value for value in values if value >= split]
+            if left_values:
+                left_center = float(np.median(left_values))
+            if right_values:
+                right_center = float(np.median(right_values))
+        if left_center > right_center:
+            left_center, right_center = right_center, left_center
+        if abs(right_center - left_center) < 0.04:
+            return 0.56, 0.76
+        return left_center, right_center
+
+    @staticmethod
+    def _choose_position_time(items: list[tuple[str, float, float]]) -> tuple[str, float]:
+        if not items:
+            return "", 0.0
+        best = max(items, key=lambda item: (item[1], -item[2], len(item[0])))
+        return best[0], float(best[1])
+
+    @staticmethod
+    def _time_minutes(value: str) -> int | None:
+        normalized = extract_time_text(value or "")
+        if not normalized:
+            return None
+        hours, minutes = (int(part) for part in normalized.split(":"))
+        return hours * 60 + minutes
+
+    @classmethod
+    def _infer_left_column_role(cls, rows) -> str:
+        left_as_start_votes = 0
+        left_as_end_votes = 0
+        for left_text, _left_score, right_text, _right_score in rows:
+            left = cls._time_minutes(left_text)
+            right = cls._time_minutes(right_text)
+            if left is None or right is None or left == right:
+                continue
+            if 120 <= right - left <= 960:
+                left_as_start_votes += 1
+            if 120 <= left - right <= 960:
+                left_as_end_votes += 1
+        if left_as_start_votes > left_as_end_votes:
+            return "start"
+        return "end"
 
     @staticmethod
     def _classify_half(detected_days: list[int]) -> str | None:

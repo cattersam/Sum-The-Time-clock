@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QSpinBox,
+    QStyledItemDelegate,
     QStyle,
     QTableWidget,
     QTableWidgetItem,
@@ -515,6 +516,27 @@ class RecognitionWorker(QObject):
         current.source_image = "; ".join(filter(None, [current.source_image, filename]))
 
 
+class TimeEditDelegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):  # noqa: N802 - Qt API name
+        editor = QLineEdit(parent)
+        editor.setMinimumHeight(34)
+        editor.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        editor.setPlaceholderText("HH:MM")
+        editor.setStyleSheet(
+            "QLineEdit { background: #ffffff; color: #172033; "
+            "border: 2px solid #1769d2; border-radius: 5px; "
+            "padding: 6px 8px; font-size: 15px; selection-background-color: #bfdbfe; }"
+        )
+        return editor
+
+    def setEditorData(self, editor, index):  # noqa: N802 - Qt API name
+        editor.setText(str(index.data() or ""))
+        editor.selectAll()
+
+    def setModelData(self, editor, model, index):  # noqa: N802 - Qt API name
+        model.setData(index, editor.text().strip())
+
+
 class MainWindow(QMainWindow):
     def __init__(self, config: AppConfig) -> None:
         super().__init__()
@@ -726,7 +748,9 @@ class MainWindow(QMainWindow):
         self.table = QTableWidget(31, 7)
         self.table.setAlternatingRowColors(False)
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(25)
+        self.table.verticalHeader().setDefaultSectionSize(32)
+        self.table.setItemDelegateForColumn(COL_START, TimeEditDelegate(self.table))
+        self.table.setItemDelegateForColumn(COL_END, TimeEditDelegate(self.table))
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked | QTableWidget.EditTrigger.SelectedClicked | QTableWidget.EditTrigger.EditKeyPressed)
         header = self.table.horizontalHeader()
@@ -1067,6 +1091,7 @@ class MainWindow(QMainWindow):
             for record in records:
                 if self.correction_history.apply_to_record(record):
                     learned_count += 1
+                    record.confidence = max(record.confidence, float(self.config.validation.get("ok_confidence_threshold", 0.88)))
                 record.status = record_status(
                     record.start_raw,
                     record.end_raw,
@@ -1196,6 +1221,9 @@ class MainWindow(QMainWindow):
             field = "clock_out"
 
         if old_value != normalized_value and normalized_value:
+            if new_value:
+                record.manual_fields.add(field)
+                record.confidence = max(record.confidence, float(self.config.validation.get("ok_confidence_threshold", 0.88)))
             self.correction_history.append(
                 date=record.day,
                 field=field,

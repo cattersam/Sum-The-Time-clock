@@ -9,7 +9,7 @@ import re
 
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 TIME_PATTERN = re.compile(r"^(?:[0-9]|[01][0-9]|2[0-3]):[0-5][0-9]$")
-TIME_CANDIDATE_PATTERN = re.compile(r"(?:[0-9OolISB]{1,2})[:;：.,](?:[0-9OolISB]{2})")
+TIME_CANDIDATE_PATTERN = re.compile(r"(?:[0-9OolISB]{1,2})[:;：.,，](?:[0-9OolISB]{2})")
 
 
 def setup_logging(log_dir: Path) -> Path:
@@ -44,10 +44,14 @@ def normalize_time_text(text: str) -> str:
         "S": "5",
         "B": "8",
         "：": ":",
+        "；": ":",
         ";": ":",
         ".": ":",
         ",": ":",
+        "，": ":",
+        "。": ":",
         " ": "",
+        "\t": "",
     }
     for old, new in replacements.items():
         normalized = normalized.replace(old, new)

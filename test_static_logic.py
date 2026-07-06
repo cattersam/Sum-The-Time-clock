@@ -13,6 +13,7 @@ from utils import extract_time_text, filter_image_files
 def main() -> None:
     assert extract_time_text("O8.3O") == "08:30"
     assert extract_time_text("18;05") == "18:05"
+    assert extract_time_text("18：05") == "18:05"
 
     config = AppConfig("config.json")
     assert config.validation["min_shift_minutes"] == 120

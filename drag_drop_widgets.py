@@ -7,7 +7,7 @@ from typing import Iterable
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QLabel
 
-IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
 class DropImageLabel(QLabel):

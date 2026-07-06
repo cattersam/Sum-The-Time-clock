@@ -6,6 +6,7 @@ build/
 dist/
 dist_new/
 dist_new_ocr_fix/
+dist_latest/
 dist_check/
 *.log
 

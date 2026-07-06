@@ -579,8 +579,9 @@ class MainWindow(QMainWindow):
             QLabel#statusLabel { color: #314560; }
             QProgressBar { background: #edf2f8; border: 1px solid #cbd7e7; border-radius: 6px; height: 20px; text-align: center; color: #172033; }
             QProgressBar::chunk { background: #1f6fd3; border-radius: 5px; }
-            QTableWidget { background: #ffffff; alternate-background-color: #f9fbff; gridline-color: #e1e7f0; border: 1px solid #d9e1ec; border-radius: 7px; }
+            QTableWidget { background: #ffffff; alternate-background-color: #f9fbff; color: #172033; gridline-color: #e1e7f0; border: 1px solid #d9e1ec; border-radius: 7px; }
             QTableWidget::item { padding: 4px; }
+            QTableWidget::item:selected { background: #dbeafe; color: #172033; }
             QHeaderView::section { background: #f4f7fb; border: 0; border-right: 1px solid #d8e1ed; border-bottom: 1px solid #d8e1ed; color: #34445c; font-weight: 700; padding: 7px; }
             QPushButton { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd7e6; background: #ffffff; color: #1f2b3d; }
             QPushButton:hover { border-color: #8eb6ef; background: #f6faff; }
@@ -589,6 +590,7 @@ class MainWindow(QMainWindow):
             QPushButton#primaryButton:hover { background: #0f5fc7; }
             QPushButton#secondaryBlueButton { background: #ffffff; border-color: #bed0e9; color: #1769d2; font-weight: 700; }
             QLineEdit, QSpinBox, QComboBox { padding: 7px; border: 1px solid #cbd5e1; border-radius: 5px; background: white; color: #172033; }
+            QComboBox QAbstractItemView { background: #ffffff; color: #172033; border: 1px solid #cbd5e1; selection-background-color: #dbeafe; selection-color: #172033; outline: 0; }
             QFrame#bottomBar { background: #f8fbff; border-top: 1px solid #d6dde8; }
             """
         )
@@ -677,6 +679,11 @@ class MainWindow(QMainWindow):
         self.language_label = QLabel()
         self.language_combo = QComboBox()
         self.language_combo.setFixedWidth(150)
+        self.language_combo.view().setStyleSheet(
+            "QAbstractItemView { background: #ffffff; color: #172033; "
+            "selection-background-color: #dbeafe; selection-color: #172033; "
+            "border: 1px solid #cbd5e1; outline: 0; }"
+        )
         for code, label in LANGUAGES:
             self.language_combo.addItem(label, code)
         index = self.language_combo.findData(self.language)
@@ -1167,6 +1174,7 @@ class MainWindow(QMainWindow):
             item = self.table.item(row, column)
             if item is not None:
                 item.setBackground(QBrush(status_bg if column == COL_STATUS else bg))
+                item.setForeground(QBrush(QColor(23, 32, 51)))
                 item.setToolTip(tip)
 
     def _cell_changed(self, row: int, column: int) -> None:

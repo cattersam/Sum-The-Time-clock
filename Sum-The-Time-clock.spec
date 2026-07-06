@@ -1,5 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_data_files
+
+
+rapidocr_datas = collect_data_files('rapidocr')
 
 a = Analysis(
     ['main.py'],
@@ -11,7 +15,7 @@ a = Analysis(
         ('assets/drop-image.svg', 'assets'),
         ('logs', 'logs'),
         ('output', 'output'),
-    ],
+    ] + rapidocr_datas,
     hiddenimports=['rapidocr', 'onnxruntime'],
     hookspath=[],
     hooksconfig={},

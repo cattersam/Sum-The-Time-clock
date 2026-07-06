@@ -29,38 +29,38 @@ class OCREngine:
             self._ocr = RapidOCR()
         except Exception as exc:
             logging.exception("RapidOCR initialization failed")
-            raise OCREngineError(f"OCR 初始化失敗: {exc}") from exc
+            raise OCREngineError(f"OCR initialization failed: {exc}") from exc
 
     def recognize(self, image: np.ndarray) -> OCRResult:
         self.initialize()
         try:
             raw_result = self._ocr(image)
-            texts = getattr(raw_result, "txts", None) or []
-            scores = getattr(raw_result, "scores", None) or []
+            texts = getattr(raw_result, "txts", None)
+            scores = getattr(raw_result, "scores", None)
+            texts = [] if texts is None else list(texts)
+            scores = [] if scores is None else list(scores)
             items = [OCRResult(str(text), float(score)) for text, score in zip(texts, scores)]
             return max(items, key=lambda item: item.confidence) if items else OCRResult()
         except Exception as exc:
             logging.exception("ROI OCR failed")
-            raise OCREngineError(f"ROI OCR 失敗: {exc}") from exc
+            raise OCREngineError(f"ROI OCR failed: {exc}") from exc
 
     def recognize_attendance(self, image: np.ndarray, fallback_half: str) -> List[OCRAttendanceRow]:
         self.initialize()
         try:
-            detections = self._detect(self._enhance(image))
+            enhanced = self._enhance(image)
+            detections = self._detect(enhanced)
             header = self._find_header(detections, image.shape[0])
+            detected_days = self._detect_days(detections, header_bottom=header[3] if header else 0)
             if header is None:
-                raise OCREngineError("找不到表格標頭，請確認照片完整且清楚")
+                header = self._infer_header_from_days(detections, image.shape[1], image.shape[0])
+            if header is None:
+                raise OCREngineError("Could not find the attendance table header. Please retake the photo so the date column is clear.")
 
             left, _, right, header_bottom = header
             table_width = max(1.0, right - left)
-            detected_days = []
-            for bbox, text, _score in detections:
-                center_x, center_y = self._center(bbox)
-                if center_y <= header_bottom or not re.fullmatch(r"\d{1,2}", text.strip()):
-                    continue
-                day = int(text.strip())
-                if 1 <= day <= 31:
-                    detected_days.append((day, center_y))
+            if not detected_days:
+                detected_days = self._detect_days(detections, header_bottom=header_bottom)
 
             half = self._classify_half([day for day, _ in detected_days]) or fallback_half
             first_day, row_count = (1, 15) if half == "first_half" else (16, 16)
@@ -104,13 +104,16 @@ class OCREngine:
             raise
         except Exception as exc:
             logging.exception("attendance OCR failed")
-            raise OCREngineError(f"打卡單 OCR 失敗: {exc}") from exc
+            raise OCREngineError(f"Attendance OCR failed: {exc}") from exc
 
     def _detect(self, image: np.ndarray) -> List[Tuple[Tuple[float, float, float, float], str, float]]:
         result = self._ocr(image)
-        boxes = getattr(result, "boxes", None) or []
-        texts = getattr(result, "txts", None) or []
-        scores = getattr(result, "scores", None) or []
+        boxes = getattr(result, "boxes", None)
+        texts = getattr(result, "txts", None)
+        scores = getattr(result, "scores", None)
+        boxes = [] if boxes is None else list(boxes)
+        texts = [] if texts is None else list(texts)
+        scores = [] if scores is None else list(scores)
         return [(self._bbox(box), str(text).strip(), float(score)) for box, text, score in zip(boxes, texts, scores)]
 
     @staticmethod
@@ -133,14 +136,28 @@ class OCREngine:
         return (left + right) / 2, (top + bottom) / 2
 
     @staticmethod
+    def _detect_days(detections, header_bottom: float = 0) -> list[tuple[int, float]]:
+        detected_days = []
+        for bbox, text, _score in detections:
+            center_x, center_y = OCREngine._center(bbox)
+            compact = text.strip()
+            if center_y <= header_bottom or not re.fullmatch(r"\d{1,2}", compact):
+                continue
+            day = int(compact)
+            if 1 <= day <= 31:
+                detected_days.append((day, center_y))
+        return detected_days
+
+    @staticmethod
     def _find_header(detections, image_height: int):
-        keywords = ("日期", "上班", "下班", "時間", "打卡")
+        keywords = ("日期", "上班", "下班", "結束", "加班", "備註", "date", "time in", "time out")
         candidates = []
         for bbox, text, _ in detections:
             _, center_y = OCREngine._center(bbox)
             if center_y > image_height * 0.55:
                 continue
-            if any(keyword in text for keyword in keywords):
+            lowered = text.lower()
+            if any(keyword in text or keyword in lowered for keyword in keywords):
                 candidates.append((bbox, text))
         if not candidates:
             return None
@@ -158,7 +175,31 @@ class OCREngine:
         )
 
     @staticmethod
+    def _infer_header_from_days(detections, image_width: int, image_height: int):
+        days = []
+        for bbox, text, _score in detections:
+            compact = text.strip()
+            if not re.fullmatch(r"\d{1,2}", compact):
+                continue
+            day = int(compact)
+            if 1 <= day <= 31:
+                center_x, center_y = OCREngine._center(bbox)
+                if center_y < image_height * 0.92:
+                    days.append((day, center_x, center_y, bbox))
+        if len(days) < 3:
+            return None
+        y_values = sorted(center_y for _day, _x, center_y, _bbox in days)
+        steps = [b - a for a, b in zip(y_values, y_values[1:]) if 4 <= b - a <= image_height * 0.12]
+        row_step = float(np.median(steps)) if steps else max(18.0, image_height * 0.035)
+        first_row_y = min(center_y for _day, _x, center_y, _bbox in days)
+        left = max(0.0, min(bbox[0] for _day, _x, _y, bbox in days) - image_width * 0.02)
+        right = image_width * 0.95
+        header_bottom = max(0.0, first_row_y - row_step * 0.55)
+        return (left, max(0.0, header_bottom - row_step), right, header_bottom)
+
+    @staticmethod
     def _fit_rows(day_points, header_bottom: float, row_count: int) -> Tuple[float, float]:
+        first_expected_day = 1 if row_count == 15 else 16
         if len(day_points) >= 2:
             sorted_points = sorted(day_points)
             steps = []
@@ -169,7 +210,7 @@ class OCREngine:
             if steps:
                 row_step = float(np.median(steps))
                 first_day, first_y = sorted_points[0]
-                row_origin = first_y - (first_day - (1 if row_count == 15 else 16)) * row_step
+                row_origin = first_y - (first_day - first_expected_day) * row_step
                 return row_origin, row_step
         return header_bottom + 20, max(8.0, (1000 - header_bottom) / row_count)
 

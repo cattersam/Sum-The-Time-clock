@@ -65,7 +65,10 @@ def extract_time_text(text: str) -> Optional[str]:
         return f"{int(hours):02d}:{minutes}"
     candidate = TIME_CANDIDATE_PATTERN.search(str(text or ""))
     if candidate:
-        return extract_time_text(candidate.group(0))
+        candidate_text = candidate.group(0)
+        if normalize_time_text(candidate_text) == normalized:
+            return None
+        return extract_time_text(candidate_text)
     return None
 
 

@@ -5,6 +5,7 @@ __pycache__/
 build/
 dist/
 dist_new/
+dist_new_ocr_fix/
 dist_check/
 *.log
 

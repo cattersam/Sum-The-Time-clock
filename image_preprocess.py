@@ -15,9 +15,9 @@ def read_image(path: str | Path) -> np.ndarray:
         data = np.fromfile(str(path), dtype=np.uint8)
         image = cv2.imdecode(data, cv2.IMREAD_COLOR)
     except OSError as exc:
-        raise ImageProcessingError(f"無法讀取圖片: {Path(path).name}") from exc
+        raise ImageProcessingError(f"Could not read image: {Path(path).name}") from exc
     if image is None:
-        raise ImageProcessingError(f"不支援或損壞的圖片: {Path(path).name}")
+        raise ImageProcessingError(f"Unsupported or damaged image: {Path(path).name}")
     return image
 
 
@@ -89,7 +89,7 @@ def crop_relative(image: np.ndarray, bbox: list[float] | tuple[float, float, flo
     top = max(0, min(height, int(y1 * height)))
     bottom = max(0, min(height, int(y2 * height)))
     if right <= left or bottom <= top:
-        raise ImageProcessingError("ROI 範圍錯誤")
+        raise ImageProcessingError("Invalid ROI settings")
     return image[top:bottom, left:right]
 
 
@@ -112,7 +112,7 @@ def classify_half_by_color(image: np.ndarray) -> str:
 
 def preprocess_cell(image: np.ndarray) -> np.ndarray:
     if image.size == 0:
-        raise ImageProcessingError("空白儲存格影像")
+        raise ImageProcessingError("Empty image cell")
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)

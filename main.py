@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
 from correction_history import CorrectionHistory
 from drag_drop_widgets import DropImageLabel
 from excel_writer import ExcelExportError, export_excel
-from image_preprocess import ImageProcessingError, classify_half_by_color, read_image
+from image_preprocess import ImageProcessingError, read_image
 from models import AttendanceRecord
 from ocr_engine import OCREngine, OCREngineError
 from roi_config import AppConfig, ConfigError
@@ -398,10 +398,6 @@ def validate_photo_pair(paths: List[Path]) -> None:
         raise ImageProcessingError("no_photos")
     if len(paths) > 2:
         raise ImageProcessingError("too_many_photos")
-    if len(paths) == 2:
-        halves = {classify_half_by_color(read_image(path)) for path in paths}
-        if halves != {"first_half", "second_half"}:
-            raise ImageProcessingError("photo_pair")
 
 
 def find_default_template() -> Optional[Path]:
@@ -465,8 +461,7 @@ class RecognitionWorker(QObject):
                 try:
                     image = read_image(path)
                     fallback_half = self.config.classify_photo(path, photo_index)
-                    half = classify_half_by_color(image)
-                    recognized_rows = engine.recognize_attendance(image, fallback_half=half or fallback_half)
+                    recognized_rows = engine.recognize_attendance(image, fallback_half=fallback_half)
                 except (ImageProcessingError, OCREngineError) as exc:
                     logging.exception("photo recognition failed")
                     fallback_half = self.config.classify_photo(path, photo_index)
